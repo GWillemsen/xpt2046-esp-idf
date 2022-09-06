@@ -2,8 +2,9 @@
  * @file xpt2046.h
  * @author Giel Willemsen
  * @brief The API definition for the XPT2046 device driver.
- * @version 0.1 Initial version
- * @date 2022-09-04
+ * @version 0.1 2022-09-04 Initial version
+ * @version 0.2 2022-09-06 Add option for mirroring and flipping of XY values.
+ * @date 2022-09-06
  * 
  * @copyright
  * MIT License
@@ -55,11 +56,18 @@ typedef struct xpt2046_spi_config {
     int cs_io_num;          ///< The pin number of the GPIO to use for the CS line.
 } xpt2046_spi_config_t;
 
+typedef struct xpt2046_screen_config {
+    xpt2046_coord_t size;   ///< The size of the screen in pixels.
+    bool flip_xy;           ///< Flip the XY value (because the touch controller is rotated for example).
+    bool mirror_x;          ///< Mirror the X value over the center of the X axis.
+    bool mirror_y;          ///< Mirror the Y value over the center of the Y axis.
+} xpt2046_screen_config_t;
+
 typedef struct xpt2046_config {
-    xpt2046_spi_config_t spi_config;    ///< The SPI bus configuration
-    xpt2046_coord_t screen_size;        ///< The actual coordinate size of the screen.
-    uint8_t oversample_count;           ///< The number of samples to take for a single measurement.
-    uint8_t moving_average_count;       ///< The number of measurements to average to calculate the current position.
+    xpt2046_spi_config_t spi_config;        ///< The SPI bus configuration
+    xpt2046_screen_config_t screen_config;  ///< The config to map the measured values and map it to a screen coordinate.
+    uint8_t oversample_count;               ///< The number of samples to take for a single measurement.
+    uint8_t moving_average_count;           ///< The number of measurements to average to calculate the current position.
 } xpt2046_config_t;
 
 // Public functions

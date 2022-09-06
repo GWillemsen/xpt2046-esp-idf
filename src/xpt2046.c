@@ -2,8 +2,9 @@
  * @file xpt2046.c
  * @author Giel Willemsen
  * @brief The API implementation for the XPT2046 device driver.
- * @version 0.1 Initial version
- * @date 2022-09-04
+ * @version 0.1 2022-09-04 Initial version
+ * @version 0.2 2022-09-06 Add option for mirroring and flipping of XY values.
+ * @date 2022-09-06
  * 
  * @copyright
  * MIT License
@@ -48,6 +49,7 @@
 #define CMD_VAL_Y           0b11010000 //  0xD1
 #define CMD_BIT_LENGTH      8
 #define CMD_READ_BIT_LENGTH 16
+#define ADC_MAX_VALUE       4096
 
 // Private structs
 typedef struct {
@@ -62,12 +64,13 @@ static esp_err_t read_adc_data(xpt2046_handle_t handle, raw_data_t *data);
 static esp_err_t read_register(xpt2046_handle_t handle, uint8_t reg, int16_t *result);
 static void add_to_avg(xpt2046_handle_t handle, raw_data_t data);
 static xpt2046_coord_t calculate_avg(xpt2046_handle_t handle);
+static xpt2046_coord_t map_adc_values(xpt2046_handle_t handle);
 
 // Private 'public' structs
 typedef struct xpt2046
 {
     spi_device_handle_t spi;
-    xpt2046_coord_t screen_size;
+    xpt2046_screen_config_t screen_config;
     uint8_t oversample_count;
     uint8_t moving_average_count;
     int16_t *avg_x_value;
@@ -100,7 +103,7 @@ extern esp_err_t xpt2046_initialize(xpt2046_handle_t *new_handle, const xpt2046_
         return ESP_ERR_NO_MEM;
     }
     handle->avg_xy_values_in_use = 0;
-    handle->screen_size = config->screen_size;
+    handle->screen_config = config->screen_config;
     handle->oversample_count = config->oversample_count;
     handle->moving_average_count = config->moving_average_count;
         
@@ -153,9 +156,7 @@ extern esp_err_t xpt2046_update(xpt2046_handle_t handle, xpt2046_coord_t *positi
 
     add_to_avg(handle, data);
 
-    xpt2046_coord_t avg_position = calculate_avg(handle);
-    position->x = (avg_position.x / 4096.0) * handle->screen_size.x;
-    position->y = (avg_position.y / 4096.0) * handle->screen_size.y;
+    *position = map_adc_values(handle);
 
     int16_t z = (data.z1 + 4096) - data.z2;
     *pressure = z;
@@ -264,4 +265,23 @@ static xpt2046_coord_t calculate_avg(xpt2046_handle_t handle)
         result.y = y_sum / handle->avg_xy_values_in_use;
     }
     return result;
+}
+
+static xpt2046_coord_t map_adc_values(xpt2046_handle_t handle)
+{
+    xpt2046_coord_t position = calculate_avg(handle);
+    if (handle->screen_config.flip_xy) {
+        int16_t temp = position.x;
+        position.x = position.y;
+        position.y = temp;
+    }
+    if (handle->screen_config.mirror_x) {
+        position.x = ADC_MAX_VALUE - position.x;
+    }
+    if (handle->screen_config.mirror_y) {
+        position.y = ADC_MAX_VALUE - position.y;
+    }
+    position.x = (position.x / ((double)ADC_MAX_VALUE)) * handle->screen_config.size.x;
+    position.y = (position.y / ((double)ADC_MAX_VALUE)) * handle->screen_config.size.y;
+    return position;
 }
