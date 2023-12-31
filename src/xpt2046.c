@@ -91,12 +91,12 @@ extern esp_err_t xpt2046_initialize(xpt2046_handle_t *new_handle, const xpt2046_
     }
     *new_handle = handle;
 
-    handle->avg_x_value = calloc(1, CONFIG_XPT2046_AVG_COUNT * sizeof(handle->avg_x_value[0]));
+    handle->avg_x_value = calloc(config->moving_average_count, sizeof(handle->avg_x_value[0]));
     if (handle->avg_x_value == NULL) {
         free(handle);
         return ESP_ERR_NO_MEM;
     }
-    handle->avg_y_value = calloc(1, CONFIG_XPT2046_AVG_COUNT * sizeof(handle->avg_y_value[0]));
+    handle->avg_y_value = calloc(config->moving_average_count, sizeof(handle->avg_y_value[0]));
     if (handle->avg_y_value == NULL) {
         free(handle->avg_x_value);
         free(handle);
@@ -190,7 +190,6 @@ static esp_err_t read_adc_data(xpt2046_handle_t handle, raw_data_t *data)
     }
 
     for (size_t i = 0; i < handle->oversample_count; i++) {
-
         int16_t x1 = 0;
         int16_t y1 = 0;
         err = read_register(handle, CMD_VAL_X, &x1);
@@ -210,8 +209,8 @@ static esp_err_t read_adc_data(xpt2046_handle_t handle, raw_data_t *data)
 
     data->z1 = z1 >> 3;
     data->z2 = z2 >> 3;
-    data->x = (x / CONFIG_XPT2046_OVER_SAMPLE);
-    data->y = (y / CONFIG_XPT2046_OVER_SAMPLE);
+    data->x = x / handle->oversample_count;
+    data->y = y / handle->oversample_count;
     return ESP_OK;
 }
 
